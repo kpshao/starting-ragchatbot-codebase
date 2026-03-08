@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG 系统查询处理流程图</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        .diagram-container {
+            background: white;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        .mermaid {
+            text-align: center;
+            min-height: 200px;
+        }
+        .note {
+            background: #e3f2fd;
+            padding: 15px;
+            border-left: 4px solid #2196f3;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .error {
+            background: #ffebee;
+            padding: 15px;
+            border-left: 4px solid #f44336;
+            margin: 20px 0;
+            border-radius: 4px;
+            color: #c62828;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔄 RAG 系统查询处理流程图</h1>
+
+    <div class="note">
+        <strong>📌 说明：</strong>这个页面展示了从用户输入到结果显示的完整查询处理流程。
+        所有图表都是交互式的，可以缩放查看。
+    </div>
+
+    <div class="diagram-container">
+        <h2>1. 完整序列图（27 个步骤）</h2>
+        <pre class="mermaid">
+sequenceDiagram
+    participant User as 用户
+    participant Frontend as 前端(script.js)
+    participant API as FastAPI(app.py)
+    participant RAG as RAG系统(rag_system.py)
+    participant Session as 会话管理器
+    participant AI as AI生成器(ai_generator.py)
+    participant Claude as Claude API
+    participant ToolMgr as 工具管理器
+    participant Search as 搜索工具
+    participant Vector as 向量存储
+    participant Chroma as ChromaDB
+
+    User->>Frontend: 1. 输入问题
+    Frontend->>Frontend: 2. 禁用输入框显示加载
+    Frontend->>API: 3. POST /api/query
+    API->>Session: 4. 创建/获取会话
+    Session-->>API: session_id
+    API->>RAG: 5. query(query, session_id)
+    RAG->>Session: 6. 获取对话历史
+    Session-->>RAG: conversation_history
+    RAG->>AI: 7. generate_response()
+    Note over AI: 构建系统提示词+对话历史
+    AI->>Claude: 8. 第一次API调用
+    Note over Claude: AI决策：需要使用搜索工具
+    Claude-->>AI: 9. stop_reason=tool_use
+    Note over AI: 检测到工具调用
+    AI->>ToolMgr: 10. execute_tool()
+    ToolMgr->>Search: 11. execute()
+    Search->>Vector: 12. search()
+    Note over Vector: 步骤1: 解析课程名称
+    Vector->>Chroma: 13a. 课程名称搜索
+    Chroma-->>Vector: 匹配的课程标题
+    Note over Vector: 步骤2: 构建过滤器
+    Vector->>Chroma: 13b. 内容搜索+过滤器
+    Note over Chroma: 文本嵌入+相似度计算+排序
+    Chroma-->>Vector: 14. 搜索结果
+    Vector-->>Search: 15. SearchResults对象
+    Note over Search: 格式化结果+跟踪来源
+    Search-->>ToolMgr: 16. 格式化的搜索结果
+    ToolMgr-->>AI: 17. 工具执行结果
+    Note over AI: 构建新的消息列表
+    AI->>Claude: 18. 第二次API调用
+    Note over Claude: 基于搜索结果生成回答
+    Claude-->>AI: 19. 最终回答文本
+    AI-->>RAG: 20. response
+    RAG->>ToolMgr: 21. get_last_sources()
+    ToolMgr-->>RAG: sources列表
+    RAG->>ToolMgr: 22. reset_sources()
+    RAG->>Session: 23. add_exchange()
+    RAG-->>API: 24. (answer, sources)
+    API-->>Frontend: 25. JSON响应
+    Frontend->>Frontend: 26. 渲染回答和来源
+    Frontend->>User: 27. 显示结果
+        </pre>
+    </div>
+
+    <div class="diagram-container">
+        <h2>2. AI 决策流程</h2>
+        <pre class="mermaid">
+flowchart TD
+    A[Claude收到用户问题] --> B{问题类型判断}
+    B -->|一般性知识问题| C[直接回答不使用工具]
+    B -->|课程相关问题| D[使用search_course_content工具]
+    C --> E[返回回答]
+    D --> F[执行向量搜索]
+    F --> G[获取相关内容]
+    G --> H[Claude基于搜索结果生成回答]
+    H --> E
+    style B fill:#ffe6e6
+    style D fill:#e6f3ff
+    style F fill:#e6ffe6
+        </pre>
+    </div>
+
+    <div class="diagram-container">
+        <h2>3. 向量搜索流程</h2>
+        <pre class="mermaid">
+flowchart LR
+    A[查询文本] --> B[文本嵌入SentenceTransformer]
+    B --> C[查询向量]
+    C --> D[相似度计算余弦相似度]
+    D --> E[应用过滤器]
+    E --> F[排序按相似度]
+    F --> G[返回Top-5最相关文档块]
+    style C fill:#ffe6e6
+    style D fill:#e6f3ff
+    style G fill:#e6ffe6
+        </pre>
+    </div>
+
+    <div class="diagram-container">
+        <h2>4. 组件交互架构</h2>
+        <pre class="mermaid">
+graph TB
+    subgraph 前端层
+        UI[Web界面]
+    end
+    subgraph API层
+        API[FastAPI应用]
+    end
+    subgraph 业务逻辑层
+        RAG[RAG系统]
+        Session[会话管理器]
+    end
+    subgraph AI层
+        AI[AI生成器]
+        Claude[Claude API]
+    end
+    subgraph 工具层
+        ToolMgr[工具管理器]
+        Search[搜索工具]
+    end
+    subgraph 数据层
+        Vector[向量存储]
+        Chroma[(ChromaDB)]
+        Docs[文档处理器]
+    end
+    UI <-->|HTTP JSON| API
+    API --> RAG
+    RAG --> Session
+    RAG --> AI
+    AI <-->|API调用| Claude
+    AI --> ToolMgr
+    ToolMgr --> Search
+    Search --> Vector
+    Vector --> Chroma
+    Docs --> Vector
+    style UI fill:#e1f5ff
+    style API fill:#fff3e0
+    style RAG fill:#f3e5f5
+    style AI fill:#e8f5e9
+    style Vector fill:#fff9c4
+    style Chroma fill:#ffebee
+        </pre>
+    </div>
+
+    <div class="diagram-container">
+        <h2>5. 错误处理流程</h2>
+        <pre class="mermaid">
+flowchart TD
+    A[开始查询] --> B{会话存在?}
+    B -->|否| C[创建新会话]
+    B -->|是| D[获取会话历史]
+    C --> D
+    D --> E[调用AI生成器]
+    E --> F{AI响应类型?}
+    F -->|直接回答| G[返回回答]
+    F -->|工具调用| H[执行搜索工具]
+    H --> I{搜索结果?}
+    I -->|成功| J[格式化结果]
+    I -->|课程未找到| K[返回错误信息]
+    I -->|无相关内容| L[返回空结果信息]
+    I -->|搜索错误| M[返回错误信息]
+    J --> N[第二次AI调用]
+    K --> N
+    L --> N
+    M --> N
+    N --> G
+    G --> O[更新会话历史]
+    O --> P[返回前端]
+    style K fill:#ffcccc
+    style L fill:#ffffcc
+    style M fill:#ffcccc
+        </pre>
+    </div>
+
+    <div class="diagram-container">
+        <h2>6. 两阶段 AI 调用时序</h2>
+        <pre class="mermaid">
+gantt
+    title AI生成器处理时序
+    dateFormat X
+    axisFormat %s
+    section 第一阶段
+    构建系统提示词 :a1, 0, 1
+    第一次Claude API调用 :a2, 1, 3
+    AI决策工具调用 :a3, 4, 1
+    section 工具执行
+    执行搜索工具 :b1, 5, 2
+    向量搜索 :b2, 7, 3
+    格式化结果 :b3, 10, 1
+    section 第二阶段
+    构建工具结果消息 :c1, 11, 1
+    第二次Claude API调用 :c2, 12, 3
+    生成最终回答 :c3, 15, 1
+        </pre>
+    </div>
+
+    <div class="note">
+        <h3>📊 数据流示例</h3>
+        <p><strong>前端 → 后端：</strong></p>
+        <pre>{ "query": "What is prompt caching?", "session_id": "abc123" }</pre>
+
+        <p><strong>后端 → 前端：</strong></p>
+        <pre>{ "answer": "Prompt caching is...", "sources": ["Course - Lesson 5"], "session_id": "abc123" }</pre>
+    </div>
+
+</body>
+</html>
