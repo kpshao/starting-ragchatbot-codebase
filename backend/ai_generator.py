@@ -29,8 +29,12 @@ All responses must be:
 Provide only the direct answer to what was asked.
 """
     
-    def __init__(self, api_key: str, model: str):
-        self.client = anthropic.Anthropic(api_key=api_key)
+    def __init__(self, api_key: str, model: str, base_url: str = ""):
+        # Initialize client with optional base_url for proxy support
+        if base_url:
+            self.client = anthropic.Anthropic(api_key=api_key, base_url=base_url)
+        else:
+            self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
         
         # Pre-build base API parameters
@@ -100,9 +104,22 @@ Provide only the direct answer to what was asked.
         """
         # Start with existing messages
         messages = base_params["messages"].copy()
-        
+
+        # Convert content blocks to proper format
+        content_blocks = []
+        for block in initial_response.content:
+            if block.type == "text":
+                content_blocks.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                content_blocks.append({
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input
+                })
+
         # Add AI's tool use response
-        messages.append({"role": "assistant", "content": initial_response.content})
+        messages.append({"role": "assistant", "content": content_blocks})
         
         # Execute all tool calls and collect results
         tool_results = []
@@ -122,14 +139,47 @@ Provide only the direct answer to what was asked.
         # Add tool results as single message
         if tool_results:
             messages.append({"role": "user", "content": tool_results})
-        
+
         # Prepare final API call without tools
+        final_system = base_params["system"] + "\n\nIMPORTANT: Provide your answer directly in plain text. Do not use any XML tags or special formatting."
+
         final_params = {
             **self.base_params,
             "messages": messages,
-            "system": base_params["system"]
+            "system": final_system,
+            "max_tokens": 2000
         }
-        
+
         # Get final response
         final_response = self.client.messages.create(**final_params)
+
+        # Handle proxy bug: if response is truncated by function_calls stop sequence
+        if (final_response.stop_reason == "stop_sequence" and
+            hasattr(final_response, 'stop_sequence') and
+            'function_calls' in str(final_response.stop_sequence)):
+
+
+            # Extract search results from tool_results
+            search_content = ""
+            if tool_results:
+                search_content = tool_results[0].get("content", "")
+
+            # Create a simple single-turn request with search results embedded
+            fallback_query = f"{base_params['messages'][0]['content']}\n\nRelevant course information:\n{search_content}"
+
+            fallback_response = self.client.messages.create(
+                **self.base_params,
+                messages=[{"role": "user", "content": fallback_query}],
+                system=base_params["system"]
+            )
+
+            if fallback_response.content and len(fallback_response.content) > 0:
+                return fallback_response.content[0].text
+            else:
+                return "I apologize, but I couldn't generate a response. Please try again."
+
+        # Handle normal response
+        if not final_response.content or len(final_response.content) == 0:
+            return "I apologize, but I couldn't generate a response. Please try again."
+
         return final_response.content[0].text
