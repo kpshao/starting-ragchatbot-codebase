@@ -25,6 +25,7 @@ uv sync
 # Create .env file with your Anthropic API key
 cp .env.example .env
 # Edit .env and add: ANTHROPIC_API_KEY=your-key-here
+# Optional: Add ANTHROPIC_BASE_URL=https://your-proxy-url.com/v1 if using a proxy
 ```
 
 ### Dependency Management
@@ -204,6 +205,12 @@ ChromaDB stores data in `backend/chroma_db/`:
 
 Required in `.env` file:
 - `ANTHROPIC_API_KEY`: Your Claude API key (required)
+
+Optional in `.env` file:
+- `ANTHROPIC_BASE_URL`: Proxy/relay URL for accessing Anthropic API (optional)
+  - Use this if you cannot directly access Anthropic's servers
+  - Example: `ANTHROPIC_BASE_URL=https://your-proxy-url.com/v1`
+  - Leave empty or omit to use the default Anthropic API endpoint
 
 All other configuration is in `backend/config.py`.
 
