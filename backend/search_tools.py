@@ -122,6 +122,97 @@ class CourseSearchTool(Tool):
 
         return "\n\n".join(formatted)
 
+
+class CourseOutlineTool(Tool):
+    """Tool for retrieving complete course outlines with lesson structure"""
+
+    def __init__(self, vector_store: VectorStore):
+        self.store = vector_store
+        self.last_sources = []  # Track sources for UI display
+
+    def get_tool_definition(self) -> Dict[str, Any]:
+        """Return Anthropic tool definition for course outline retrieval"""
+        return {
+            "name": "get_course_outline",
+            "description": "Get the complete structure and lesson list for a course. Use this when users ask about course structure, lesson list, or what topics a course covers. Supports partial course names (e.g., 'MCP').",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "course_name": {
+                        "type": "string",
+                        "description": "Course title or partial name (e.g., 'MCP', 'Introduction', 'Prompt Engineering')"
+                    }
+                },
+                "required": ["course_name"]
+            }
+        }
+
+    def execute(self, course_name: str) -> str:
+        """
+        Execute the outline tool to retrieve course structure.
+
+        Args:
+            course_name: Full or partial course name
+
+        Returns:
+            Formatted course outline or error message
+        """
+        # Get course outline from vector store
+        outline = self.store.get_course_outline(course_name)
+
+        # Handle not found
+        if not outline:
+            return f"No course found matching '{course_name}'. Please check the course name and try again."
+
+        # Format and return results
+        return self._format_outline(outline)
+
+    def _format_outline(self, outline: Dict[str, Any]) -> str:
+        """
+        Format course outline for Claude to present to users.
+
+        Args:
+            outline: Course outline dictionary from VectorStore
+
+        Returns:
+            Formatted string with course metadata and lesson list
+        """
+        # Build header with course metadata
+        formatted_parts = [
+            f"Course: {outline['title']}"
+        ]
+
+        if outline.get('instructor'):
+            formatted_parts.append(f"Instructor: {outline['instructor']}")
+
+        if outline.get('course_link'):
+            formatted_parts.append(f"Course Link: {outline['course_link']}")
+
+        formatted_parts.append(f"\nTotal Lessons: {outline['lesson_count']}")
+        formatted_parts.append("\nLesson Structure:")
+
+        # Build lesson list
+        lessons = outline.get('lessons', [])
+        for lesson in lessons:
+            lesson_line = f"  {lesson['lesson_number']}. {lesson['lesson_title']}"
+            if lesson.get('lesson_link'):
+                lesson_line += f" - {lesson['lesson_link']}"
+            formatted_parts.append(lesson_line)
+
+        # Track sources for UI (course link as primary source)
+        if outline.get('course_link'):
+            self.last_sources = [{
+                "text": outline['title'],
+                "url": outline['course_link']
+            }]
+        else:
+            self.last_sources = [{
+                "text": outline['title'],
+                "url": None
+            }]
+
+        return "\n".join(formatted_parts)
+
 class ToolManager:
     """Manages available tools for the AI"""
     

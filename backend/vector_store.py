@@ -264,4 +264,53 @@ class VectorStore:
             return None
         except Exception as e:
             print(f"Error getting lesson link: {e}")
-    
+
+    def get_course_outline(self, course_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get complete course outline including metadata and all lessons.
+        Supports fuzzy course name matching.
+
+        Args:
+            course_name: Full or partial course name (e.g., "MCP" or "Introduction to MCP")
+
+        Returns:
+            Dictionary with course metadata and lessons, or None if not found
+            Format: {
+                'title': str,
+                'instructor': str,
+                'course_link': str,
+                'lessons': [{'lesson_number': int, 'lesson_title': str, 'lesson_link': str}],
+                'lesson_count': int
+            }
+        """
+        import json
+
+        # Step 1: Resolve course name using fuzzy matching
+        resolved_title = self._resolve_course_name(course_name)
+        if not resolved_title:
+            return None
+
+        # Step 2: Get course metadata by ID (title is the ID)
+        try:
+            results = self.course_catalog.get(ids=[resolved_title])
+            if not results or not results['metadatas'] or not results['metadatas'][0]:
+                return None
+
+            metadata = results['metadatas'][0]
+
+            # Step 3: Parse lessons from JSON
+            lessons = []
+            if 'lessons_json' in metadata:
+                lessons = json.loads(metadata['lessons_json'])
+
+            # Step 4: Return structured outline
+            return {
+                'title': metadata.get('title'),
+                'instructor': metadata.get('instructor'),
+                'course_link': metadata.get('course_link'),
+                'lessons': lessons,
+                'lesson_count': metadata.get('lesson_count', len(lessons))
+            }
+        except Exception as e:
+            print(f"Error getting course outline: {e}")
+            return None
