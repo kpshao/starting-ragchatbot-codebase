@@ -1,0 +1,15 @@
+Course Title: Test Course for RAG System
+Course Link: https://example.com/test-course
+Course Instructor: Test Instructor
+
+Lesson 0: Introduction to Testing
+Lesson Link: https://example.com/lesson-0
+This is the introduction lesson content. It covers basic testing concepts and methodologies.
+We will learn about unit tests, integration tests, and end-to-end tests in this comprehensive course.
+Testing is a critical part of software development that ensures code quality and reliability.
+
+Lesson 1: Advanced Testing Techniques
+Lesson Link: https://example.com/lesson-1
+This lesson covers mocking, fixtures, and test isolation strategies for complex systems.
+We explore how to test systems with external dependencies like databases and APIs.
+Advanced testing techniques help maintain code quality as applications grow in complexity.
