@@ -122,3 +122,71 @@ def test_config():
     config.ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
     config.EMBEDDING_MODEL = "all-MiniLM-L6-v2"
     return config
+
+
+@pytest.fixture
+def mock_rag_system_full(test_config, mock_anthropic_client):
+    """Create a fully mocked RAG system for API testing"""
+    from rag_system import RAGSystem
+
+    with patch('rag_system.VectorStore'), \
+         patch('rag_system.AIGenerator'), \
+         patch('rag_system.SessionManager'), \
+         patch('rag_system.ToolManager'):
+
+        rag = RAGSystem(test_config)
+
+        # Mock session manager
+        rag.session_manager.create_session = Mock(return_value="test-session-123")
+
+        # Mock query method
+        rag.query = Mock(return_value=(
+            "Test answer",
+            [{"text": "Test source", "url": "https://example.com"}]
+        ))
+
+        # Mock analytics
+        rag.get_course_analytics = Mock(return_value={
+            "total_courses": 2,
+            "course_titles": ["Course 1", "Course 2"]
+        })
+
+        # Mock vector store
+        rag.vector_store.get_existing_course_titles = Mock(return_value=["Course 1", "Course 2"])
+
+        return rag
+
+
+@pytest.fixture
+def sample_query_request():
+    """Create sample query request data"""
+    return {
+        "query": "What is the main topic of lesson 1?",
+        "session_id": None
+    }
+
+
+@pytest.fixture
+def sample_query_response():
+    """Create sample query response data"""
+    return {
+        "answer": "The main topic of lesson 1 is testing fundamentals.",
+        "sources": [
+            {"text": "Course: Test Course, Lesson 1", "url": "https://example.com/lesson1"},
+            {"text": "Course: Test Course, Lesson 2", "url": None}
+        ],
+        "session_id": "test-session-123"
+    }
+
+
+@pytest.fixture
+def sample_course_stats():
+    """Create sample course statistics"""
+    return {
+        "total_courses": 3,
+        "course_titles": [
+            "Introduction to Python",
+            "Advanced Testing",
+            "Web Development"
+        ]
+    }

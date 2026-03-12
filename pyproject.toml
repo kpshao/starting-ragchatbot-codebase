@@ -29,7 +29,7 @@ dev = [
 [tool.black]
 line-length = 88
 target-version = ['py313']
-include = '\.pyi?$'
+include = '\\.pyi?$'
 extend-exclude = '''
 /(
   # directories
@@ -94,3 +94,25 @@ module = [
 ]
 ignore_missing_imports = true
 ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--cov=backend",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+markers = [
+    "unit: Unit tests for individual components",
+    "integration: Integration tests for component interactions",
+    "diagnostic: Diagnostic tests for system health and failure scenarios",
+    "slow: Tests that take longer to execute",
+]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
