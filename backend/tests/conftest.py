@@ -1,25 +1,17 @@
 """Shared pytest fixtures for all tests"""
 
-import pytest
-import tempfile
-import shutil
+import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
-import sys
-import os
+
+import pytest
 
 # Add backend to path for imports
 backend_path = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_path))
 
-from models import Course, Lesson, CourseChunk
-from vector_store import VectorStore, SearchResults
-from tests.test_data.mock_responses import (
-    create_tool_use_response,
-    create_final_answer_response,
-    create_empty_response,
-    create_direct_answer_response
-)
+from models import Course, CourseChunk, Lesson
+from vector_store import SearchResults, VectorStore
 
 
 @pytest.fixture
@@ -33,14 +25,14 @@ def sample_course_data():
             Lesson(
                 lesson_number=0,
                 title="Introduction to Testing",
-                lesson_link="https://example.com/lesson-0"
+                lesson_link="https://example.com/lesson-0",
             ),
             Lesson(
                 lesson_number=1,
                 title="Advanced Testing Techniques",
-                lesson_link="https://example.com/lesson-1"
-            )
-        ]
+                lesson_link="https://example.com/lesson-1",
+            ),
+        ],
     )
 
     chunks = [
@@ -48,14 +40,14 @@ def sample_course_data():
             content="This is the introduction lesson content. It covers basic testing concepts.",
             course_title="Test Course for RAG System",
             lesson_number=0,
-            chunk_index=0
+            chunk_index=0,
         ),
         CourseChunk(
             content="This lesson covers mocking, fixtures, and test isolation strategies.",
             course_title="Test Course for RAG System",
             lesson_number=1,
-            chunk_index=0
-        )
+            chunk_index=0,
+        ),
     ]
 
     return {"course": course, "chunks": chunks}
@@ -74,7 +66,7 @@ def temp_chroma_db(tmp_path):
 def populated_vector_store(temp_chroma_db, sample_course_data):
     """Create a VectorStore with test data loaded"""
     # Mock config to use temp directory
-    with patch('vector_store.config') as mock_config:
+    with patch("vector_store.config") as mock_config:
         mock_config.CHROMA_PATH = temp_chroma_db
         mock_config.EMBEDDING_MODEL = "all-MiniLM-L6-v2"
         mock_config.MAX_RESULTS = 5
@@ -107,9 +99,9 @@ def mock_search_results():
         documents=["Test content from lesson 0", "Test content from lesson 1"],
         metadata=[
             {"course_title": "Test Course for RAG System", "lesson_number": 0},
-            {"course_title": "Test Course for RAG System", "lesson_number": 1}
+            {"course_title": "Test Course for RAG System", "lesson_number": 1},
         ],
-        distances=[0.3, 0.5]
+        distances=[0.3, 0.5],
     )
 
 

@@ -1,21 +1,23 @@
 """Unit tests for AIGenerator tool calling functionality"""
 
-import pytest
-from unittest.mock import Mock, patch, call
 import sys
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
 
 # Add backend to path
 backend_path = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(backend_path))
 
 from ai_generator import AIGenerator
+
 from tests.test_data.mock_responses import (
-    create_tool_use_response,
-    create_final_answer_response,
-    create_empty_response,
     create_direct_answer_response,
-    create_proxy_bug_response
+    create_empty_response,
+    create_final_answer_response,
+    create_proxy_bug_response,
+    create_tool_use_response,
 )
 
 
@@ -36,15 +38,15 @@ class TestAIGeneratorToolCalling:
         mock_tool_manager.execute_tool.return_value = "Search results here"
 
         # Create AI generator with mock client
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content", "description": "Search tool"}]
             result = generator.generate_response(
-                query="What is MCP?",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="What is MCP?", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Verify tool was executed
@@ -61,15 +63,15 @@ class TestAIGeneratorToolCalling:
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Tool execution result"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test query",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test query", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Verify two API calls were made
@@ -86,15 +88,15 @@ class TestAIGeneratorToolCalling:
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Search results"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Should return fallback message
@@ -103,11 +105,15 @@ class TestAIGeneratorToolCalling:
     def test_generate_response_without_tools_returns_direct_answer(self):
         """Verify general knowledge questions don't use tools"""
         mock_client = Mock()
-        direct_response = create_direct_answer_response("Python is a programming language")
+        direct_response = create_direct_answer_response(
+            "Python is a programming language"
+        )
         mock_client.messages.create.return_value = direct_response
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             # No tools provided
@@ -120,10 +126,14 @@ class TestAIGeneratorToolCalling:
     def test_generate_response_with_api_error_raises_exception(self):
         """Verify Anthropic API errors are propagated"""
         mock_client = Mock()
-        mock_client.messages.create.side_effect = Exception("API Error: Rate limit exceeded")
+        mock_client.messages.create.side_effect = Exception(
+            "API Error: Rate limit exceeded"
+        )
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             with pytest.raises(Exception) as exc_info:
@@ -143,15 +153,15 @@ class TestAIGeneratorToolCalling:
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Search results"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             generator.generate_response(
-                query="What is MCP?",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="What is MCP?", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Check second API call (after tool execution)
@@ -183,21 +193,21 @@ class TestAIGeneratorToolCalling:
             tool_response_1,
             tool_response_2,
             proxy_bug_response,  # This is the forced final response that has proxy bug
-            fallback_response
+            fallback_response,
         ]
 
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Search results"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Should trigger fallback and make 4 API calls
@@ -211,14 +221,15 @@ class TestAIGeneratorToolCalling:
         direct_response = create_direct_answer_response()
         mock_client.messages.create.return_value = direct_response
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             history = "User: Previous question\nAssistant: Previous answer\n\n"
             generator.generate_response(
-                query="New question",
-                conversation_history=history
+                query="New question", conversation_history=history
             )
 
             # Check system prompt includes history
@@ -230,31 +241,29 @@ class TestAIGeneratorToolCalling:
 
     def test_generate_response_with_base_url(self):
         """Verify base_url is used when provided (proxy support)"""
-        with patch('ai_generator.anthropic.Anthropic') as mock_anthropic:
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
             mock_client = Mock()
             mock_anthropic.return_value = mock_client
 
             generator = AIGenerator(
                 api_key="test-key",
                 model="claude-sonnet-4-20250514",
-                base_url="https://proxy.example.com/v1"
+                base_url="https://proxy.example.com/v1",
             )
 
             # Verify Anthropic was initialized with base_url
             mock_anthropic.assert_called_once_with(
-                api_key="test-key",
-                base_url="https://proxy.example.com/v1"
+                api_key="test-key", base_url="https://proxy.example.com/v1"
             )
 
     def test_generate_response_without_base_url(self):
         """Verify default Anthropic client when no base_url"""
-        with patch('ai_generator.anthropic.Anthropic') as mock_anthropic:
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
             mock_client = Mock()
             mock_anthropic.return_value = mock_client
 
             generator = AIGenerator(
-                api_key="test-key",
-                model="claude-sonnet-4-20250514"
+                api_key="test-key", model="claude-sonnet-4-20250514"
             )
 
             # Verify Anthropic was initialized without base_url
@@ -265,41 +274,41 @@ class TestAIGeneratorToolCalling:
         mock_client = Mock()
         # Round 1: get_course_outline tool use
         tool_response_1 = create_tool_use_response(
-            tool_name="get_course_outline",
-            tool_input={"course_name": "MCP"}
+            tool_name="get_course_outline", tool_input={"course_name": "MCP"}
         )
         # Round 2: search_course_content tool use
         tool_response_2 = create_tool_use_response(
             tool_name="search_course_content",
-            tool_input={"query": "Prompt Engineering"}
+            tool_input={"query": "Prompt Engineering"},
         )
         # Final: text response
-        final_response = create_final_answer_response("Found courses about Prompt Engineering")
+        final_response = create_final_answer_response(
+            "Found courses about Prompt Engineering"
+        )
 
         mock_client.messages.create.side_effect = [
             tool_response_1,
             tool_response_2,
-            final_response
+            final_response,
         ]
 
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.side_effect = [
             "Lesson 4: Prompt Engineering Basics",
-            "Course: Advanced AI - covers Prompt Engineering"
+            "Course: Advanced AI - covers Prompt Engineering",
         ]
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
-            tools = [
-                {"name": "get_course_outline"},
-                {"name": "search_course_content"}
-            ]
+            tools = [{"name": "get_course_outline"}, {"name": "search_course_content"}]
             result = generator.generate_response(
                 query="Find courses about same topic as lesson 4 of MCP",
                 tools=tools,
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify 2 tool calls were made
@@ -320,15 +329,15 @@ class TestAIGeneratorToolCalling:
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Complete search results"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test query",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test query", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Only 1 tool call
@@ -343,28 +352,30 @@ class TestAIGeneratorToolCalling:
         # All 3 responses are tool use (Claude keeps trying)
         tool_response_1 = create_tool_use_response(tool_name="get_course_outline")
         tool_response_2 = create_tool_use_response(tool_name="search_course_content")
-        tool_response_3 = create_tool_use_response(tool_name="get_course_outline")  # 3rd attempt
+        tool_response_3 = create_tool_use_response(
+            tool_name="get_course_outline"
+        )  # 3rd attempt
         final_response = create_final_answer_response("Forced final answer")
 
         mock_client.messages.create.side_effect = [
             tool_response_1,
             tool_response_2,
             tool_response_3,  # This triggers max rounds
-            final_response
+            final_response,
         ]
 
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Tool result"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "get_course_outline"}, {"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test query",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test query", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Only 2 tool calls (max rounds)
@@ -383,17 +394,19 @@ class TestAIGeneratorToolCalling:
 
         mock_tool_manager = Mock()
         # Tool execution raises exception
-        mock_tool_manager.execute_tool.side_effect = Exception("Database connection failed")
+        mock_tool_manager.execute_tool.side_effect = Exception(
+            "Database connection failed"
+        )
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test query",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test query", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Should handle error gracefully and return final response
@@ -406,32 +419,32 @@ class TestAIGeneratorToolCalling:
         # Same tool call twice
         tool_response_1 = create_tool_use_response(
             tool_name="search_course_content",
-            tool_input={"query": "test", "course_name": "MCP"}
+            tool_input={"query": "test", "course_name": "MCP"},
         )
         tool_response_2 = create_tool_use_response(
             tool_name="search_course_content",
-            tool_input={"query": "test", "course_name": "MCP"}  # Duplicate
+            tool_input={"query": "test", "course_name": "MCP"},  # Duplicate
         )
         final_response = create_final_answer_response("Forced answer after duplicate")
 
         mock_client.messages.create.side_effect = [
             tool_response_1,
             tool_response_2,
-            final_response
+            final_response,
         ]
 
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Search results"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test query",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test query", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Only 1 tool call (duplicate prevented)
@@ -450,15 +463,15 @@ class TestAIGeneratorToolCalling:
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Search results"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test query",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test query", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Should return fallback message
@@ -475,21 +488,21 @@ class TestAIGeneratorToolCalling:
         mock_client.messages.create.side_effect = [
             tool_response_1,
             tool_response_2,
-            final_response
+            final_response,
         ]
 
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Tool result"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="Test query",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="Test query", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Final result should be text
@@ -507,15 +520,15 @@ class TestAIGeneratorToolCalling:
         mock_tool_manager = Mock()
         mock_tool_manager.execute_tool.return_value = "Search results"
 
-        with patch('ai_generator.anthropic.Anthropic', return_value=mock_client):
-            generator = AIGenerator(api_key="test-key", model="claude-sonnet-4-20250514")
+        with patch("ai_generator.anthropic.Anthropic", return_value=mock_client):
+            generator = AIGenerator(
+                api_key="test-key", model="claude-sonnet-4-20250514"
+            )
             generator.client = mock_client
 
             tools = [{"name": "search_course_content"}]
             result = generator.generate_response(
-                query="What is MCP?",
-                tools=tools,
-                tool_manager=mock_tool_manager
+                query="What is MCP?", tools=tools, tool_manager=mock_tool_manager
             )
 
             # Should work exactly as before

@@ -1,9 +1,11 @@
+from typing import Any
+
 import anthropic
-from typing import List, Optional, Dict, Any
+
 
 class AIGenerator:
     """Handles interactions with Anthropic's Claude API for generating responses"""
-    
+
     # Static system prompt to avoid rebuilding on each call
     SYSTEM_PROMPT = """ You are an AI assistant specialized in course materials and educational content with access to tools for course information.
 
@@ -44,7 +46,7 @@ All responses must be:
 4. **Example-supported** - Include relevant examples when they aid understanding
 Provide only the direct answer to what was asked.
 """
-    
+
     def __init__(self, api_key: str, model: str, base_url: str = ""):
         # Initialize client with optional base_url for proxy support
         if base_url:
@@ -52,94 +54,101 @@ Provide only the direct answer to what was asked.
         else:
             self.client = anthropic.Anthropic(api_key=api_key)
         self.model = model
-        
+
         # Pre-build base API parameters
-        self.base_params = {
-            "model": self.model,
-            "temperature": 0,
-            "max_tokens": 800
-        }
-    
-    def generate_response(self, query: str,
-                         conversation_history: Optional[str] = None,
-                         tools: Optional[List] = None,
-                         tool_manager=None) -> str:
+        self.base_params = {"model": self.model, "temperature": 0, "max_tokens": 800}
+
+    def generate_response(
+        self,
+        query: str,
+        conversation_history: str | None = None,
+        tools: list | None = None,
+        tool_manager=None,
+    ) -> str:
         """
         Generate AI response with optional tool usage and conversation context.
-        
+
         Args:
             query: The user's question or request
             conversation_history: Previous messages for context
             tools: Available tools the AI can use
             tool_manager: Manager to execute tools
-            
+
         Returns:
             Generated response as string
         """
-        
+
         # Build system content efficiently - avoid string ops when possible
         system_content = (
             f"{self.SYSTEM_PROMPT}\n\nPrevious conversation:\n{conversation_history}"
-            if conversation_history 
+            if conversation_history
             else self.SYSTEM_PROMPT
         )
-        
+
         # Prepare API call parameters efficiently
         api_params = {
             **self.base_params,
             "messages": [{"role": "user", "content": query}],
-            "system": system_content
+            "system": system_content,
         }
-        
+
         # Add tools if available
         if tools:
             api_params["tools"] = tools
             api_params["tool_choice"] = {"type": "auto"}
-        
+
         # Get response from Claude
         response = self.client.messages.create(**api_params)
 
         # Handle tool execution with multi-round support
         if response.stop_reason == "tool_use" and tool_manager:
-            return self._execute_tool_rounds(response, api_params, tool_manager, max_rounds=2)
+            return self._execute_tool_rounds(
+                response, api_params, tool_manager, max_rounds=2
+            )
 
         # Return direct response
         return self._extract_text_response(response)
 
-    def _format_content_blocks(self, content_blocks) -> List[Dict]:
+    def _format_content_blocks(self, content_blocks) -> list[dict]:
         """Convert API response content blocks to message format"""
         formatted = []
         for block in content_blocks:
             if block.type == "text":
                 formatted.append({"type": "text", "text": block.text})
             elif block.type == "tool_use":
-                formatted.append({
-                    "type": "tool_use",
-                    "id": block.id,
-                    "name": block.name,
-                    "input": block.input
-                })
+                formatted.append(
+                    {
+                        "type": "tool_use",
+                        "id": block.id,
+                        "name": block.name,
+                        "input": block.input,
+                    }
+                )
         return formatted
 
-    def _execute_all_tools(self, content_blocks, tool_manager) -> List[Dict]:
+    def _execute_all_tools(self, content_blocks, tool_manager) -> list[dict]:
         """Execute all tool calls and return formatted results"""
         tool_results = []
         for block in content_blocks:
             if block.type == "tool_use":
                 try:
                     result = tool_manager.execute_tool(block.name, **block.input)
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": result
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": result,
+                        }
+                    )
                 except Exception as e:
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block.id,
-                        "content": f"Tool execution failed: {str(e)}",
-                        "is_error": True
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block.id,
+                            "content": f"Tool execution failed: {str(e)}",
+                            "is_error": True,
+                        }
+                    )
         return tool_results
 
     def _extract_text_response(self, response) -> str:
@@ -148,21 +157,31 @@ Provide only the direct answer to what was asked.
             return "I apologize, but I couldn't generate a response."
 
         text_parts = [block.text for block in response.content if block.type == "text"]
-        return "".join(text_parts) if text_parts else "I apologize, but I couldn't generate a response."
+        return (
+            "".join(text_parts)
+            if text_parts
+            else "I apologize, but I couldn't generate a response."
+        )
 
-    def _is_duplicate_call(self, tool_calls: List, history: List[tuple]) -> bool:
+    def _is_duplicate_call(self, tool_calls: list, history: list[tuple]) -> bool:
         """Check if any tool call is a duplicate to prevent infinite loops"""
         for tool_call in tool_calls:
             for prev_name, prev_input in history:
                 if tool_call.name == prev_name:
                     # Normalize inputs for comparison
-                    normalized_current = {k: str(v).lower().strip() for k, v in tool_call.input.items()}
-                    normalized_prev = {k: str(v).lower().strip() for k, v in prev_input.items()}
+                    normalized_current = {
+                        k: str(v).lower().strip() for k, v in tool_call.input.items()
+                    }
+                    normalized_prev = {
+                        k: str(v).lower().strip() for k, v in prev_input.items()
+                    }
                     if normalized_current == normalized_prev:
                         return True
         return False
 
-    def _force_final_response(self, messages: List[Dict], base_params: Dict[str, Any], last_response) -> str:
+    def _force_final_response(
+        self, messages: list[dict], base_params: dict[str, Any], last_response
+    ) -> str:
         """Generate final response when max rounds reached or error occurs"""
         # If last response has text, use it
         if last_response.stop_reason != "tool_use" and last_response.content:
@@ -170,37 +189,51 @@ Provide only the direct answer to what was asked.
 
         # If last response is tool_use, add it to messages and request final answer
         if last_response.stop_reason == "tool_use":
-            messages.append({
-                "role": "assistant",
-                "content": self._format_content_blocks(last_response.content)
-            })
-            messages.append({
-                "role": "user",
-                "content": "You have reached the maximum number of tool calls. Please provide your final answer based on the information gathered."
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": self._format_content_blocks(last_response.content),
+                }
+            )
+            messages.append(
+                {
+                    "role": "user",
+                    "content": "You have reached the maximum number of tool calls. Please provide your final answer based on the information gathered.",
+                }
+            )
 
         # Make final API call without tools
         final_params = {
             **self.base_params,
             "messages": messages,
-            "system": base_params["system"] + "\n\nIMPORTANT: Provide your answer directly in plain text. Do not use any tools.",
-            "max_tokens": 2000
+            "system": base_params["system"]
+            + "\n\nIMPORTANT: Provide your answer directly in plain text. Do not use any tools.",
+            "max_tokens": 2000,
         }
 
         try:
             final_response = self.client.messages.create(**final_params)
 
             # Handle proxy bug (preserve existing logic)
-            if (final_response.stop_reason == "stop_sequence" and
-                hasattr(final_response, 'stop_sequence') and
-                'function_calls' in str(final_response.stop_sequence)):
+            if (
+                final_response.stop_reason == "stop_sequence"
+                and hasattr(final_response, "stop_sequence")
+                and "function_calls" in str(final_response.stop_sequence)
+            ):
                 # Use existing fallback mechanism - extract search results from messages
                 search_content = ""
                 for msg in messages:
-                    if msg.get("role") == "user" and isinstance(msg.get("content"), list):
+                    if msg.get("role") == "user" and isinstance(
+                        msg.get("content"), list
+                    ):
                         for content_item in msg["content"]:
-                            if isinstance(content_item, dict) and content_item.get("type") == "tool_result":
-                                search_content += content_item.get("content", "") + "\n\n"
+                            if (
+                                isinstance(content_item, dict)
+                                and content_item.get("type") == "tool_result"
+                            ):
+                                search_content += (
+                                    content_item.get("content", "") + "\n\n"
+                                )
 
                 # Create a simple single-turn request with search results embedded
                 fallback_query = f"{base_params['messages'][0]['content']}\n\nRelevant course information:\n{search_content}"
@@ -208,7 +241,7 @@ Provide only the direct answer to what was asked.
                 fallback_response = self.client.messages.create(
                     **self.base_params,
                     messages=[{"role": "user", "content": fallback_query}],
-                    system=base_params["system"]
+                    system=base_params["system"],
                 )
 
                 if fallback_response.content and len(fallback_response.content) > 0:
@@ -220,8 +253,13 @@ Provide only the direct answer to what was asked.
         except Exception as e:
             return f"Error generating final response: {str(e)}"
 
-    def _execute_tool_rounds(self, initial_response, base_params: Dict[str, Any],
-                            tool_manager, max_rounds: int = 2) -> str:
+    def _execute_tool_rounds(
+        self,
+        initial_response,
+        base_params: dict[str, Any],
+        tool_manager,
+        max_rounds: int = 2,
+    ) -> str:
         """
         Execute tool calls across multiple rounds, supporting up to max_rounds sequential tool calls.
 
@@ -249,23 +287,33 @@ Provide only the direct answer to what was asked.
                 return "I apologize, but I couldn't generate a response."
 
             # Check for duplicate tool calls (infinite loop prevention)
-            tool_calls = [block for block in current_response.content if block.type == "tool_use"]
+            tool_calls = [
+                block for block in current_response.content if block.type == "tool_use"
+            ]
             if self._is_duplicate_call(tool_calls, tool_call_history):
-                return self._force_final_response(messages, base_params, current_response)
+                return self._force_final_response(
+                    messages, base_params, current_response
+                )
 
             # Add assistant's tool use to messages
-            messages.append({
-                "role": "assistant",
-                "content": self._format_content_blocks(current_response.content)
-            })
+            messages.append(
+                {
+                    "role": "assistant",
+                    "content": self._format_content_blocks(current_response.content),
+                }
+            )
 
             # Execute all tools and collect results
-            tool_results = self._execute_all_tools(current_response.content, tool_manager)
+            tool_results = self._execute_all_tools(
+                current_response.content, tool_manager
+            )
 
             # Termination: Tool execution failed
             if any(result.get("is_error") for result in tool_results):
                 messages.append({"role": "user", "content": tool_results})
-                return self._force_final_response(messages, base_params, current_response)
+                return self._force_final_response(
+                    messages, base_params, current_response
+                )
 
             # Add tool results to messages
             messages.append({"role": "user", "content": tool_results})
@@ -283,7 +331,7 @@ Provide only the direct answer to what was asked.
                 "messages": messages,
                 "system": base_params["system"],
                 "tools": base_params.get("tools"),  # Keep tools available
-                "tool_choice": {"type": "auto"}
+                "tool_choice": {"type": "auto"},
             }
 
             # Get next response

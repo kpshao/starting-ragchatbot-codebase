@@ -21,7 +21,9 @@ def create_tool_use_response(tool_name="search_course_content", tool_input=None)
     return response
 
 
-def create_final_answer_response(text="This is the final answer based on the search results."):
+def create_final_answer_response(
+    text="This is the final answer based on the search results.",
+):
     """Create a mock response with final text answer"""
     response = Mock()
     response.stop_reason = "end_turn"

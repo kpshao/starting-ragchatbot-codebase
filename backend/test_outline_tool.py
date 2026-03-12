@@ -4,8 +4,8 @@ Test script for the new CourseOutlineTool functionality.
 Demonstrates the tool's ability to retrieve course outlines with fuzzy matching.
 """
 
-from rag_system import RAGSystem
 from config import Config
+from rag_system import RAGSystem
 
 
 def test_outline_tool():
@@ -29,7 +29,7 @@ def test_outline_tool():
         print(f"Test {i}: {query}")
         print("-" * 70)
 
-        response, sources = rag.query(query, session_id=f'test_{i}')
+        response, sources = rag.query(query, session_id=f"test_{i}")
 
         print("Response:")
         print(response)
@@ -39,7 +39,7 @@ def test_outline_tool():
             print("Sources:")
             for source in sources:
                 print(f"  - {source['text']}")
-                if source.get('url'):
+                if source.get("url"):
                     print(f"    URL: {source['url']}")
         else:
             print("No sources returned")

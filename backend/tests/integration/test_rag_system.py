@@ -1,9 +1,10 @@
 """Integration tests for RAG system handling content-query questions"""
 
-import pytest
-from unittest.mock import Mock, patch
 import sys
 from pathlib import Path
+from unittest.mock import Mock, patch
+
+import pytest
 
 # Add backend to path
 backend_path = Path(__file__).parent.parent.parent
@@ -18,10 +19,12 @@ class TestRAGSystemQuery:
 
     def test_query_with_course_question_uses_search_tool(self):
         """Verify course-specific questions trigger search tool"""
-        with patch('rag_system.VectorStore') as mock_vs, \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager'):
+        with (
+            patch("rag_system.VectorStore") as mock_vs,
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager"),
+        ):
 
             # Setup mocks
             mock_ai_instance = Mock()
@@ -32,9 +35,11 @@ class TestRAGSystemQuery:
             rag = RAGSystem()
 
             # Mock tool manager to track if search was used
-            rag.tool_manager.get_last_sources = Mock(return_value=[
-                {"text": "MCP Course - Lesson 1", "url": "http://example.com"}
-            ])
+            rag.tool_manager.get_last_sources = Mock(
+                return_value=[
+                    {"text": "MCP Course - Lesson 1", "url": "http://example.com"}
+                ]
+            )
 
             # Execute query
             response, sources = rag.query("What is MCP?")
@@ -47,13 +52,17 @@ class TestRAGSystemQuery:
 
     def test_query_with_general_question_skips_search(self):
         """Verify general knowledge questions can skip search"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager'):
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager"),
+        ):
 
             mock_ai_instance = Mock()
-            mock_ai_instance.generate_response.return_value = "Python is a programming language"
+            mock_ai_instance.generate_response.return_value = (
+                "Python is a programming language"
+            )
             mock_ai.return_value = mock_ai_instance
 
             rag = RAGSystem()
@@ -68,10 +77,12 @@ class TestRAGSystemQuery:
 
     def test_query_returns_sources_from_tool(self):
         """Verify sources are extracted from tool_manager"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager'):
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager"),
+        ):
 
             mock_ai_instance = Mock()
             mock_ai_instance.generate_response.return_value = "Answer"
@@ -82,7 +93,7 @@ class TestRAGSystemQuery:
             # Mock sources
             expected_sources = [
                 {"text": "Course A - Lesson 1", "url": "http://a.com"},
-                {"text": "Course B - Lesson 2", "url": "http://b.com"}
+                {"text": "Course B - Lesson 2", "url": "http://b.com"},
             ]
             rag.tool_manager.get_last_sources = Mock(return_value=expected_sources)
 
@@ -92,10 +103,12 @@ class TestRAGSystemQuery:
 
     def test_query_updates_session_history(self):
         """Verify conversation history is updated"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager') as mock_sm:
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager") as mock_sm,
+        ):
 
             mock_ai_instance = Mock()
             mock_ai_instance.generate_response.return_value = "Answer"
@@ -111,17 +124,17 @@ class TestRAGSystemQuery:
 
             # Verify history was updated
             mock_session_manager.update_history.assert_called_once_with(
-                "session123",
-                "Test question",
-                "Answer"
+                "session123", "Test question", "Answer"
             )
 
     def test_query_with_no_session_creates_session(self):
         """Verify new session created when session_id is None"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager') as mock_sm:
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager") as mock_sm,
+        ):
 
             mock_ai_instance = Mock()
             mock_ai_instance.generate_response.return_value = "Answer"
@@ -141,10 +154,12 @@ class TestRAGSystemQuery:
 
     def test_query_resets_sources_after_retrieval(self):
         """Verify sources are reset to avoid leakage"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager'):
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager"),
+        ):
 
             mock_ai_instance = Mock()
             mock_ai_instance.generate_response.return_value = "Answer"
@@ -161,14 +176,18 @@ class TestRAGSystemQuery:
 
     def test_query_with_tool_execution_error_handles_gracefully(self):
         """Verify tool execution errors handled gracefully"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager'):
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager"),
+        ):
 
             # AI generator returns error message from tool
             mock_ai_instance = Mock()
-            mock_ai_instance.generate_response.return_value = "Search error: Database unavailable"
+            mock_ai_instance.generate_response.return_value = (
+                "Search error: Database unavailable"
+            )
             mock_ai.return_value = mock_ai_instance
 
             rag = RAGSystem()
@@ -181,17 +200,21 @@ class TestRAGSystemQuery:
 
     def test_query_passes_conversation_history_to_ai(self):
         """Verify conversation history is passed to AI generator"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager') as mock_sm:
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager") as mock_sm,
+        ):
 
             mock_ai_instance = Mock()
             mock_ai_instance.generate_response.return_value = "Answer"
             mock_ai.return_value = mock_ai_instance
 
             mock_session_manager = Mock()
-            mock_session_manager.get_history.return_value = "User: Previous\nAssistant: Response\n\n"
+            mock_session_manager.get_history.return_value = (
+                "User: Previous\nAssistant: Response\n\n"
+            )
             mock_sm.return_value = mock_session_manager
 
             rag = RAGSystem()
@@ -201,17 +224,24 @@ class TestRAGSystemQuery:
 
             # Verify history was passed to AI
             call_args = mock_ai_instance.generate_response.call_args
-            assert call_args[1]["conversation_history"] == "User: Previous\nAssistant: Response\n\n"
+            assert (
+                call_args[1]["conversation_history"]
+                == "User: Previous\nAssistant: Response\n\n"
+            )
 
     def test_query_with_empty_query_string(self):
         """Verify handling of empty query string"""
-        with patch('rag_system.VectorStore'), \
-             patch('rag_system.AIGenerator') as mock_ai, \
-             patch('rag_system.DocumentProcessor'), \
-             patch('rag_system.SessionManager'):
+        with (
+            patch("rag_system.VectorStore"),
+            patch("rag_system.AIGenerator") as mock_ai,
+            patch("rag_system.DocumentProcessor"),
+            patch("rag_system.SessionManager"),
+        ):
 
             mock_ai_instance = Mock()
-            mock_ai_instance.generate_response.return_value = "Please provide a question"
+            mock_ai_instance.generate_response.return_value = (
+                "Please provide a question"
+            )
             mock_ai.return_value = mock_ai_instance
 
             rag = RAGSystem()

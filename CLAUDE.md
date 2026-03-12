@@ -45,6 +45,44 @@ uv remove package-name
 # NEVER use: pip install, pip uninstall, or python -m pip
 ```
 
+### Code Quality Tools
+
+This project uses black, ruff, and mypy for code quality:
+
+```bash
+# Format code with black
+./scripts/format.sh
+# or: uv run black backend/ main.py
+
+# Run linter (check only)
+./scripts/lint.sh
+# or: uv run ruff check backend/ main.py
+
+# Run linter with auto-fix
+./scripts/lint-fix.sh
+# or: uv run ruff check --fix backend/ main.py
+
+# Run type checker
+./scripts/typecheck.sh
+# or: uv run mypy backend/ main.py
+
+# Run all quality checks (format + lint + typecheck + tests)
+./scripts/quality.sh
+```
+
+**Pre-commit Hook** (optional):
+```bash
+# Install pre-commit hook to auto-format on commit
+ln -s ../../scripts/pre-commit.sh .git/hooks/pre-commit
+```
+
+**Quality Standards**:
+- Line length: 88 characters (black default)
+- Python version: 3.13
+- All code must pass black formatting
+- All code must pass ruff linting (pycodestyle, pyflakes, isort, flake8-bugbear)
+- Type hints are encouraged but not required
+
 ### Running the Application
 ```bash
 # Quick start (recommended)

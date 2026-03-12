@@ -1,25 +1,22 @@
-import warnings
-warnings.filterwarnings("ignore", message="resource_tracker: There appear to be.*")
-
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
 import os
+import warnings
 
 from config import config
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from rag_system import RAGSystem
+
+warnings.filterwarnings("ignore", message="resource_tracker: There appear to be.*")
 
 # Initialize FastAPI app
 app = FastAPI(title="Course Materials RAG System", root_path="")
 
 # Add trusted host middleware for proxy
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["*"]
-)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 # Enable CORS with proper settings for proxy
 app.add_middleware(
@@ -34,29 +31,39 @@ app.add_middleware(
 # Initialize RAG system
 rag_system = RAGSystem(config)
 
+
 # Pydantic models for request/response
 class QueryRequest(BaseModel):
     """Request model for course queries"""
+
     query: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
+
 
 class SourceItem(BaseModel):
     """Source with optional link"""
+
     text: str
-    url: Optional[str] = None
+    url: str | None = None
+
 
 class QueryResponse(BaseModel):
     """Response model for course queries"""
+
     answer: str
-    sources: List[SourceItem]
+    sources: list[SourceItem]
     session_id: str
+
 
 class CourseStats(BaseModel):
     """Response model for course statistics"""
+
     total_courses: int
-    course_titles: List[str]
+    course_titles: list[str]
+
 
 # API Endpoints
+
 
 @app.post("/api/query", response_model=QueryResponse)
 async def query_documents(request: QueryRequest):
@@ -67,7 +74,9 @@ async def query_documents(request: QueryRequest):
             raise HTTPException(status_code=400, detail="Query cannot be empty")
 
         if len(request.query) > 10000:
-            raise HTTPException(status_code=400, detail="Query too long (max 10000 characters)")
+            raise HTTPException(
+                status_code=400, detail="Query too long (max 10000 characters)"
+            )
 
         # Create session if not provided
         session_id = request.session_id
@@ -77,37 +86,34 @@ async def query_documents(request: QueryRequest):
         # Process query using RAG system
         answer, sources = rag_system.query(request.query, session_id)
 
-        return QueryResponse(
-            answer=answer,
-            sources=sources,
-            session_id=session_id
-        )
+        return QueryResponse(answer=answer, sources=sources, session_id=session_id)
     except HTTPException:
         # Re-raise HTTP exceptions (validation errors)
         raise
     except Exception as e:
         # Log detailed error information
         import traceback
+
         error_type = type(e).__name__
         error_msg = str(e)
         error_traceback = traceback.format_exc()
 
         print(f"\n{'='*80}")
-        print(f"ERROR in /api/query endpoint")
+        print("ERROR in /api/query endpoint")
         print(f"{'='*80}")
         print(f"Error Type: {error_type}")
         print(f"Error Message: {error_msg}")
         print(f"Query: {request.query[:100]}...")  # First 100 chars
         print(f"Session ID: {request.session_id}")
-        print(f"\nFull Traceback:")
+        print("\nFull Traceback:")
         print(error_traceback)
         print(f"{'='*80}\n")
 
         # Return detailed error to client
         raise HTTPException(
-            status_code=500,
-            detail=f"Query failed: {error_type}: {error_msg}"
-        )
+            status_code=500, detail=f"Query failed: {error_type}: {error_msg}"
+        ) from None
+
 
 @app.get("/api/courses", response_model=CourseStats)
 async def get_course_stats():
@@ -116,10 +122,11 @@ async def get_course_stats():
         analytics = rag_system.get_course_analytics()
         return CourseStats(
             total_courses=analytics["total_courses"],
-            course_titles=analytics["course_titles"]
+            course_titles=analytics["course_titles"],
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @app.get("/api/health")
 async def health_check():
@@ -131,10 +138,10 @@ async def health_check():
 
         # Check if we can make a simple AI call
         try:
-            test_response = rag_system.ai_generator.client.messages.create(
+            _ = rag_system.ai_generator.client.messages.create(
                 model=rag_system.config.ANTHROPIC_MODEL,
                 max_tokens=10,
-                messages=[{"role": "user", "content": "Hi"}]
+                messages=[{"role": "user", "content": "Hi"}],
             )
             api_status = "healthy"
         except Exception as api_error:
@@ -142,21 +149,14 @@ async def health_check():
 
         return {
             "status": "healthy",
-            "chromadb": {
-                "status": "healthy",
-                "course_count": course_count
-            },
-            "anthropic_api": {
-                "status": api_status
-            },
+            "chromadb": {"status": "healthy", "course_count": course_count},
+            "anthropic_api": {"status": api_status},
             "embedding_model": config.EMBEDDING_MODEL,
-            "model": config.ANTHROPIC_MODEL
+            "model": config.ANTHROPIC_MODEL,
         }
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": f"{type(e).__name__}: {str(e)}"
-        }
+        return {"status": "unhealthy", "error": f"{type(e).__name__}: {str(e)}"}
+
 
 @app.on_event("startup")
 async def startup_event():
@@ -165,16 +165,15 @@ async def startup_event():
     if os.path.exists(docs_path):
         print("Loading initial documents...")
         try:
-            courses, chunks = rag_system.add_course_folder(docs_path, clear_existing=False)
+            courses, chunks = rag_system.add_course_folder(
+                docs_path, clear_existing=False
+            )
             print(f"Loaded {courses} courses with {chunks} chunks")
         except Exception as e:
             print(f"Error loading documents: {e}")
 
+
 # Custom static file handler with no-cache headers for development
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
-from pathlib import Path
 
 
 class DevStaticFiles(StaticFiles):
@@ -186,7 +185,7 @@ class DevStaticFiles(StaticFiles):
             response.headers["Pragma"] = "no-cache"
             response.headers["Expires"] = "0"
         return response
-    
-    
+
+
 # Serve static files for the frontend
 app.mount("/", StaticFiles(directory="../frontend", html=True), name="static")
