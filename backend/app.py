@@ -62,21 +62,52 @@ class CourseStats(BaseModel):
 async def query_documents(request: QueryRequest):
     """Process a query and return response with sources"""
     try:
+        # Validate query
+        if not request.query or len(request.query.strip()) == 0:
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+        if len(request.query) > 10000:
+            raise HTTPException(status_code=400, detail="Query too long (max 10000 characters)")
+
         # Create session if not provided
         session_id = request.session_id
         if not session_id:
             session_id = rag_system.session_manager.create_session()
-        
+
         # Process query using RAG system
         answer, sources = rag_system.query(request.query, session_id)
-        
+
         return QueryResponse(
             answer=answer,
             sources=sources,
             session_id=session_id
         )
+    except HTTPException:
+        # Re-raise HTTP exceptions (validation errors)
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # Log detailed error information
+        import traceback
+        error_type = type(e).__name__
+        error_msg = str(e)
+        error_traceback = traceback.format_exc()
+
+        print(f"\n{'='*80}")
+        print(f"ERROR in /api/query endpoint")
+        print(f"{'='*80}")
+        print(f"Error Type: {error_type}")
+        print(f"Error Message: {error_msg}")
+        print(f"Query: {request.query[:100]}...")  # First 100 chars
+        print(f"Session ID: {request.session_id}")
+        print(f"\nFull Traceback:")
+        print(error_traceback)
+        print(f"{'='*80}\n")
+
+        # Return detailed error to client
+        raise HTTPException(
+            status_code=500,
+            detail=f"Query failed: {error_type}: {error_msg}"
+        )
 
 @app.get("/api/courses", response_model=CourseStats)
 async def get_course_stats():
@@ -89,6 +120,43 @@ async def get_course_stats():
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint to verify system status"""
+    try:
+        # Check ChromaDB
+        course_titles = rag_system.vector_store.get_existing_course_titles()
+        course_count = len(course_titles)
+
+        # Check if we can make a simple AI call
+        try:
+            test_response = rag_system.ai_generator.client.messages.create(
+                model=rag_system.config.ANTHROPIC_MODEL,
+                max_tokens=10,
+                messages=[{"role": "user", "content": "Hi"}]
+            )
+            api_status = "healthy"
+        except Exception as api_error:
+            api_status = f"unhealthy: {str(api_error)}"
+
+        return {
+            "status": "healthy",
+            "chromadb": {
+                "status": "healthy",
+                "course_count": course_count
+            },
+            "anthropic_api": {
+                "status": api_status
+            },
+            "embedding_model": config.EMBEDDING_MODEL,
+            "model": config.ANTHROPIC_MODEL
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "error": f"{type(e).__name__}: {str(e)}"
+        }
 
 @app.on_event("startup")
 async def startup_event():
